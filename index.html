@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CreatorOps · Voucher Message Generator</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&family=DM+Serif+Display:ital@0;1&display=swap');
+
+  :root {
+    --cream:#f7f5f0; --paper:#fdfcfa; --sand:#ede9e2; --sand-2:#e2ddd6;
+    --mink:#c8c2b8; --stone:#8c877f; --ink:#2a2724; --ink-2:#4a4540; --ink-3:#6e6862;
+    --accent:#5b6ee1; --accent-2:#8b97ea; --accent-bg:#eef0fb;
+    --green:#5a9e78; --green-bg:#f0f7f3; --green-bd:#b8d9c6;
+    --amber:#c08a3e; --amber-bg:#faf3e8;
+    --r-sm:8px; --r-md:14px; --r-lg:22px;
+    --font-sans:'DM Sans',-apple-system,sans-serif;
+    --font-serif:'DM Serif Display',Georgia,serif;
+    --font-mono:'SF Mono','Fira Code',ui-monospace,monospace;
+    --shadow:0 1px 3px rgba(42,39,36,0.06),0 4px 16px rgba(42,39,36,0.04);
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:var(--font-sans); background:var(--cream); color:var(--ink); min-height:100vh; font-size:14px; line-height:1.5; }
+  .app { display:flex; min-height:100vh; max-width:1400px; margin:0 auto; }
+
+  /* Sidebar */
+  .sidebar { width:300px; flex-shrink:0; background:var(--paper); border-right:1px solid var(--sand-2); display:flex; flex-direction:column; position:sticky; top:0; height:100vh; overflow-y:auto; }
+  .logo { padding:26px 24px 20px; border-bottom:1px solid var(--sand); }
+  .logo-row { display:flex; align-items:center; gap:10px; margin-bottom:4px; }
+  .logo-mark { width:32px; height:32px; border-radius:8px; background:linear-gradient(135deg,var(--accent),var(--accent-2)); display:flex; align-items:center; justify-content:center; flex-shrink:0; color:#fff; font-weight:700; font-size:15px; }
+  .logo-name { font-weight:600; font-size:15px; letter-spacing:.02em; }
+  .logo-tag { font-size:11px; color:var(--stone); padding-left:42px; font-style:italic; }
+
+  .sb-sec { padding:20px 24px; border-bottom:1px solid var(--sand); }
+  .sb-about { padding:20px 24px; margin-top:auto; border-top:1px solid var(--sand); }
+  .about-name { font-size:12px; font-weight:600; color:var(--ink-2); margin-bottom:2px; }
+  .about-by { font-size:11px; color:var(--stone); }
+  .about-by::before { content:'✦ '; color:var(--accent); }
+  .sb-label { font-size:10px; font-weight:600; letter-spacing:.12em; text-transform:uppercase; color:var(--mink); margin-bottom:12px; }
+
+  /* Dropzone */
+  .dropzone { border:1.5px dashed var(--sand-2); border-radius:var(--r-md); padding:22px 16px; text-align:center; cursor:pointer; transition:all .2s; position:relative; background:var(--cream); }
+  .dropzone:hover, .dropzone.drag-over { border-color:var(--accent); background:var(--accent-bg); }
+  .dropzone input { position:absolute; inset:0; opacity:0; cursor:pointer; width:100%; }
+  .dz-icon { font-size:22px; margin-bottom:7px; }
+  .dz-main { font-size:13px; font-weight:500; color:var(--ink-2); margin-bottom:2px; }
+  .dz-sub { font-size:11px; color:var(--stone); }
+
+  /* Upload status */
+  .upload-status { display:none; margin-top:10px; padding:12px; background:var(--accent-bg); border:1px solid var(--accent-2); border-radius:var(--r-sm); }
+  .upload-status.show { display:block; }
+  .us-file { display:flex; align-items:center; gap:7px; font-size:12px; font-weight:600; color:var(--accent); margin-bottom:5px; }
+  .us-file-name { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .us-detail { font-size:11px; color:var(--ink-3); line-height:1.6; }
+
+  /* Sample link */
+  .sample-link { margin-top:10px; font-size:11px; color:var(--accent); cursor:pointer; text-decoration:underline; background:none; border:none; font-family:var(--font-sans); padding:0; }
+  .sample-link:hover { color:var(--accent-2); }
+
+  /* Rules */
+  .rule-item { display:flex; align-items:center; gap:8px; font-size:12px; color:var(--ink-3); padding:5px 0; }
+  .rule-check { color:var(--green); font-weight:700; flex-shrink:0; }
+
+  /* Stats */
+  .stats-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .stat-box { background:var(--cream); border:1px solid var(--sand); border-radius:var(--r-sm); padding:12px; text-align:center; }
+  .stat-n { font-family:var(--font-serif); font-size:24px; color:var(--ink); line-height:1; }
+  .stat-l { font-size:10px; color:var(--stone); margin-top:4px; letter-spacing:.03em; }
+
+  /* CM pills */
+  .cm-list { display:flex; flex-direction:column; gap:2px; }
+  .cm-pill { display:flex; align-items:center; justify-content:space-between; padding:8px 10px; border-radius:var(--r-sm); cursor:pointer; border:none; background:transparent; text-align:left; width:100%; transition:background .12s; color:var(--ink-3); font-size:13px; font-family:var(--font-sans); }
+  .cm-pill:hover { background:var(--sand); color:var(--ink); }
+  .cm-pill.active { background:var(--ink); color:var(--paper); }
+  .cm-pill.active .cm-badge { background:var(--accent); color:var(--paper); }
+  .cm-badge { font-size:10px; font-weight:600; background:var(--sand); color:var(--stone); padding:2px 8px; border-radius:20px; min-width:28px; text-align:center; }
+
+  /* Main */
+  .main { flex:1; padding:36px 44px; overflow-y:auto; min-width:0; }
+  .page-header { margin-bottom:26px; }
+  .page-title { font-family:var(--font-serif); font-size:30px; color:var(--ink); margin-bottom:6px; letter-spacing:-.01em; }
+  .page-sub { font-size:13px; color:var(--stone); }
+
+  /* Search */
+  .search-wrap { position:relative; margin-bottom:18px; display:none; }
+  .search-wrap.show { display:block; }
+  .search-input { width:100%; padding:10px 14px 10px 38px; border:1px solid var(--sand-2); border-radius:var(--r-md); background:var(--paper); color:var(--ink); font-size:13px; font-family:var(--font-sans); outline:none; transition:border-color .15s; }
+  .search-input:focus { border-color:var(--accent); }
+  .search-icon { position:absolute; left:14px; top:50%; transform:translateY(-50%); color:var(--mink); font-size:15px; pointer-events:none; }
+
+  /* Processing feedback */
+  .processing { display:none; padding:22px; background:var(--paper); border:1px solid var(--sand-2); border-radius:var(--r-md); box-shadow:var(--shadow); margin-bottom:20px; }
+  .processing.show { display:block; }
+  .proc-step { display:flex; align-items:center; gap:10px; font-size:13px; color:var(--mink); padding:5px 0; transition:color .2s; }
+  .proc-step.active { color:var(--ink); font-weight:500; }
+  .proc-step.done { color:var(--green); }
+  .proc-dot { width:16px; height:16px; flex-shrink:0; border-radius:50%; border:1.5px solid currentColor; display:flex; align-items:center; justify-content:center; font-size:9px; }
+  .proc-step.done .proc-dot { background:var(--green); border-color:var(--green); color:#fff; }
+  .proc-step.active .proc-dot { border-color:var(--ink); }
+
+  /* Insights */
+  .insights { display:none; margin-bottom:22px; }
+  .insights.show { display:block; }
+  .insights-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:12px; }
+  .ins-card { background:var(--paper); border:1px solid var(--sand-2); border-radius:var(--r-md); padding:14px 16px; box-shadow:var(--shadow); }
+  .ins-n { font-family:var(--font-serif); font-size:26px; line-height:1; margin-bottom:4px; }
+  .ins-n.eligible { color:var(--green); }
+  .ins-n.skipped { color:var(--amber); }
+  .ins-l { font-size:11px; color:var(--stone); }
+  .skip-breakdown { background:var(--amber-bg); border:1px solid #e8d5b0; border-radius:var(--r-md); padding:14px 18px; }
+  .skip-title { font-size:11px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--amber); margin-bottom:10px; }
+  .skip-rows { display:flex; flex-wrap:wrap; gap:8px; }
+  .skip-chip { display:flex; align-items:center; gap:6px; font-size:12px; background:var(--paper); border:1px solid #e8d5b0; border-radius:20px; padding:4px 12px; color:var(--ink-2); }
+  .skip-chip b { color:var(--amber); font-weight:600; }
+
+  /* Intro editor */
+  .intro-card { background:var(--paper); border:1px solid var(--sand-2); border-radius:var(--r-md); padding:18px 20px; margin-bottom:18px; box-shadow:var(--shadow); }
+  .intro-label { font-size:10px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:var(--mink); margin-bottom:10px; }
+  textarea#introText { width:100%; background:transparent; border:none; color:var(--ink-2); font-size:13px; font-family:var(--font-sans); line-height:1.7; resize:none; outline:none; min-height:88px; }
+
+  /* Action bar */
+  .action-bar { display:flex; gap:10px; margin-bottom:22px; }
+  .btn-primary { flex:1; padding:13px 20px; background:var(--ink); color:var(--paper); border:none; border-radius:var(--r-md); font-size:13px; font-weight:500; font-family:var(--font-sans); cursor:pointer; display:flex; align-items:center; justify-content:space-between; transition:background .15s; }
+  .btn-primary:hover { background:var(--ink-2); }
+  .btn-primary .count { font-size:11px; color:var(--stone); background:rgba(255,255,255,.1); padding:2px 8px; border-radius:20px; }
+  .btn-secondary { padding:13px 18px; background:var(--paper); color:var(--ink-2); border:1px solid var(--sand-2); border-radius:var(--r-md); font-size:13px; font-weight:500; font-family:var(--font-sans); cursor:pointer; transition:all .15s; white-space:nowrap; }
+  .btn-secondary:hover { border-color:var(--accent); color:var(--accent); }
+
+  /* Creator cards */
+  .kol-card { background:var(--paper); border:1px solid var(--sand-2); border-radius:var(--r-md); margin-bottom:8px; overflow:hidden; box-shadow:var(--shadow); transition:border-color .15s; }
+  .kol-card:hover { border-color:var(--mink); }
+  .kol-header { display:flex; align-items:center; justify-content:space-between; padding:14px 16px; cursor:pointer; user-select:none; gap:12px; }
+  .kol-left { display:flex; align-items:center; gap:12px; flex:1; min-width:0; }
+  .kol-avatar { width:36px; height:36px; border-radius:50%; background:var(--accent-bg); border:1.5px solid var(--accent-2); display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:600; color:var(--accent); flex-shrink:0; text-transform:uppercase; }
+  .kol-info { min-width:0; }
+  .kol-name { font-size:14px; font-weight:500; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; cursor:pointer; display:inline-flex; align-items:center; gap:6px; border-radius:4px; transition:color .15s; }
+  .kol-name:hover { color:var(--accent); }
+  .copy-hint { font-size:9px; font-weight:600; letter-spacing:.04em; text-transform:uppercase; color:var(--mink); border:1px solid var(--sand-2); border-radius:4px; padding:1px 5px; opacity:0; transition:opacity .15s; }
+  .kol-name:hover .copy-hint { opacity:1; }
+  .kol-name.handle-copied { color:var(--green); }
+  .kol-name.handle-copied .copy-hint { opacity:1; color:var(--green); border-color:var(--green-bd); }
+  .kol-name.handle-copied .copy-hint::before { content:'✓ '; }
+  .kol-meta { display:flex; gap:5px; margin-top:3px; flex-wrap:wrap; }
+  .tag { font-size:10px; padding:2px 7px; border-radius:4px; background:var(--sand); color:var(--stone); white-space:nowrap; }
+  .tag.cm { background:var(--accent-bg); color:var(--accent); border:1px solid var(--accent-2); }
+  .kol-right { display:flex; align-items:center; gap:8px; flex-shrink:0; }
+  .copy-btn { font-size:11px; padding:5px 12px; border:1px solid var(--sand-2); border-radius:var(--r-sm); background:transparent; color:var(--stone); cursor:pointer; transition:all .15s; font-family:var(--font-sans); white-space:nowrap; }
+  .copy-btn:hover { border-color:var(--accent); color:var(--accent); }
+  .copy-btn.copied { border-color:var(--green); color:var(--green); }
+  .chevron { width:16px; height:16px; color:var(--mink); transition:transform .2s; flex-shrink:0; }
+  .kol-card.expanded .chevron { transform:rotate(180deg); }
+  .kol-body { display:none; border-top:1px solid var(--sand); padding:16px; background:var(--cream); }
+  .kol-card.expanded .kol-body { display:block; }
+  .msg-text { font-size:13px; line-height:1.8; white-space:pre-wrap; word-break:break-word; color:var(--ink-2); font-family:var(--font-sans); }
+
+  .divider { display:flex; align-items:center; gap:12px; margin-bottom:16px; }
+  .divider-line { flex:1; height:1px; background:var(--sand-2); }
+  .divider-text { font-size:11px; color:var(--mink); white-space:nowrap; letter-spacing:.06em; }
+
+  .empty { text-align:center; padding:64px 24px; color:var(--stone); }
+  .empty-glyph { font-family:var(--font-serif); font-size:48px; color:var(--sand-2); margin-bottom:16px; }
+  .empty-title { font-size:16px; font-weight:500; color:var(--ink-3); margin-bottom:6px; }
+  .empty-text { font-size:13px; line-height:1.6; }
+
+  .error-bar { background:#fdf2f0; border:1px solid #e8c5bc; border-radius:var(--r-sm); padding:10px 14px; font-size:12px; color:#b85a42; margin-bottom:16px; display:none; }
+  .error-bar.show { display:block; }
+
+  ::-webkit-scrollbar { width:5px; height:5px; }
+  ::-webkit-scrollbar-track { background:transparent; }
+  ::-webkit-scrollbar-thumb { background:var(--sand-2); border-radius:3px; }
+
+  @media (max-width:640px){ .insights-grid{ grid-template-columns:1fr 1fr; } .main{ padding:24px 20px; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="logo">
+      <div class="logo-row"><div class="logo-mark">C</div><div class="logo-name">CreatorOps</div></div>
+      <div class="logo-tag">Voucher Message Generator</div>
+    </div>
+
+    <div class="sb-sec">
+      <div class="sb-label">Upload File</div>
+      <div class="dropzone" id="dropzone">
+        <input type="file" id="fileInput" accept=".xlsx,.xls" />
+        <div class="dz-icon">📂</div>
+        <div class="dz-main">Drop your workbook here</div>
+        <div class="dz-sub">or click to browse</div>
+      </div>
+      <div class="upload-status" id="uploadStatus">
+        <div class="us-file"><span>✓</span><span class="us-file-name" id="usFileName"></span></div>
+        <div class="us-detail" id="usDetail"></div>
+      </div>
+      <button class="sample-link" id="sampleLink">Load a sample workbook →</button>
+    </div>
+
+    <div class="sb-sec">
+      <div class="sb-label">Rules Applied</div>
+      <div class="rule-item"><span class="rule-check">✓</span> Already received voucher</div>
+      <div class="rule-item"><span class="rule-check">✓</span> Bound to other agency</div>
+      <div class="rule-item"><span class="rule-check">✓</span> Low ROI</div>
+      <div class="rule-item"><span class="rule-check">✓</span> Invalid voucher value</div>
+      <div class="rule-item"><span class="rule-check">✓</span> Struck-through cells</div>
+    </div>
+
+    <div class="sb-sec" id="statsSection" style="display:none">
+      <div class="sb-label">Overview</div>
+      <div class="stats-grid">
+        <div class="stat-box"><div class="stat-n" id="sKOLs">—</div><div class="stat-l">Creators</div></div>
+        <div class="stat-box"><div class="stat-n" id="sSends">—</div><div class="stat-l">Messages</div></div>
+        <div class="stat-box"><div class="stat-n" id="sVouchers">—</div><div class="stat-l">Voucher Campaigns</div></div>
+        <div class="stat-box"><div class="stat-n" id="sCMs">—</div><div class="stat-l">Creator Managers</div></div>
+      </div>
+    </div>
+
+    <div class="sb-sec" id="cmSection" style="display:none">
+      <div class="sb-label">Filter by Creator Manager</div>
+      <div class="cm-list" id="cmList"></div>
+    </div>
+
+    <div class="sb-about">
+      <div class="sb-label">About</div>
+      <div class="about-name">CreatorOps Voucher Generator</div>
+      <div class="about-by">Built by Remi Liang</div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="page-header">
+      <div class="page-title">Voucher Message Generator</div>
+      <div class="page-sub" id="pageSub">A rule-based workflow tool that turns a voucher workbook into ready-to-send creator messages.</div>
+    </div>
+
+    <div class="error-bar" id="errorBar"></div>
+
+    <!-- Processing feedback -->
+    <div class="processing" id="processing">
+      <div class="proc-step" id="step-read"><div class="proc-dot"></div><span>Reading workbook…</span></div>
+      <div class="proc-step" id="step-rules"><div class="proc-dot"></div><span>Applying business rules…</span></div>
+      <div class="proc-step" id="step-gen"><div class="proc-dot"></div><span>Generating messages…</span></div>
+      <div class="proc-step" id="step-done"><div class="proc-dot"></div><span>Done.</span></div>
+    </div>
+
+    <!-- Insights -->
+    <div class="insights" id="insights">
+      <div class="insights-grid">
+        <div class="ins-card"><div class="ins-n" id="insScanned">0</div><div class="ins-l">Creators scanned</div></div>
+        <div class="ins-card"><div class="ins-n eligible" id="insEligible">0</div><div class="ins-l">Eligible</div></div>
+        <div class="ins-card"><div class="ins-n skipped" id="insSkipped">0</div><div class="ins-l">Voucher rows skipped</div></div>
+        <div class="ins-card"><div class="ins-n" id="insMessages">0</div><div class="ins-l">Messages generated</div></div>
+      </div>
+      <div class="skip-breakdown" id="skipBreakdown" style="display:none">
+        <div class="skip-title">Skip reasons</div>
+        <div class="skip-rows" id="skipRows"></div>
+      </div>
+    </div>
+
+    <!-- Intro editor -->
+    <div class="intro-card" id="introCard" style="display:none">
+      <div class="intro-label">Message intro · editable</div>
+      <textarea id="introText" rows="5" oninput="render()"></textarea>
+    </div>
+
+    <!-- Search -->
+    <div class="search-wrap" id="searchWrap">
+      <span class="search-icon">⌕</span>
+      <input class="search-input" type="text" id="searchInput" placeholder="Search creators…" oninput="render()">
+    </div>
+
+    <!-- Actions -->
+    <div class="action-bar" id="actionBar" style="display:none">
+      <button class="btn-primary" onclick="copyAll(this)">
+        <span class="lbl">Copy all messages</span>
+        <span class="count" id="copyAllCount">—</span>
+      </button>
+      <button class="btn-secondary" onclick="exportTxt()">Export .txt</button>
+      <button class="btn-secondary" onclick="exportCsv()">Export .csv</button>
+    </div>
+
+    <div id="kolList">
+      <div class="empty">
+        <div class="empty-glyph">◇</div>
+        <div class="empty-title">No workbook loaded yet</div>
+        <div class="empty-text">Drop a voucher workbook into the sidebar, or load the sample<br>to see how the rule engine generates creator messages.</div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+// ── State ──
+let kolData = {}, vmData = {}, cmMap = {}, currentCM = 'all', allCMs = [];
+let insights = { scanned:0, eligible:0, skipped:0, messages:0, skipReasons:{} };
+let lastElapsed = 0;
+
+// Exclusion note keywords (business rules)
+const EXCLUSION_RULES = [
+  { key:'already', label:'Already Claimed', match:['already received','already claimed','already issued'] },
+  { key:'agency',  label:'Other Agency',    match:['other agency','bound to other','different agency'] },
+  { key:'lowroi',  label:'Low ROI',         match:['low roi'] },
+];
+
+// ── File handling ──
+const dropzone = document.getElementById('dropzone');
+const fileInput = document.getElementById('fileInput');
+dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('drag-over'); });
+dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag-over'));
+dropzone.addEventListener('drop', e => { e.preventDefault(); dropzone.classList.remove('drag-over'); if (e.dataTransfer.files[0]) processFile(e.dataTransfer.files[0]); });
+fileInput.addEventListener('change', e => { if (e.target.files[0]) processFile(e.target.files[0]); });
+document.getElementById('sampleLink').addEventListener('click', loadSample);
+
+function processFile(file) {
+  const reader = new FileReader();
+  reader.onload = e => runPipeline(file.name, new Uint8Array(e.target.result));
+  reader.readAsArrayBuffer(file);
+}
+
+// Load the bundled sample (generated on the fly so the file is self-contained)
+function loadSample() {
+  runPipeline('sample_vouchers.xlsx', buildSampleWorkbook());
+}
+
+// ── Processing pipeline with visible steps ──
+async function runPipeline(fileName, bytes) {
+  showError('');
+  document.getElementById('uploadStatus').classList.remove('show');
+  const proc = document.getElementById('processing');
+  proc.classList.add('show');
+  document.getElementById('insights').classList.remove('show');
+  ['read','rules','gen','done'].forEach(s => {
+    const el = document.getElementById('step-'+s);
+    el.classList.remove('active','done');
+  });
+
+  const t0 = performance.now();
+  const setStep = (s, cls) => { const el = document.getElementById('step-'+s); el.classList.remove('active','done'); el.classList.add(cls); };
+  const wait = ms => new Promise(r => setTimeout(r, ms));
+
+  // Step 1: read
+  setStep('read','active'); await wait(180);
+  let wb;
+  try { wb = XLSX.read(bytes, { type:'array' }); }
+  catch(err) { proc.classList.remove('show'); showError('Could not read workbook: ' + err.message); return; }
+  setStep('read','done');
+
+  // Step 2: rules + parse
+  setStep('rules','active'); await wait(180);
+  const ok = parseWorkbook(wb);
+  if (!ok) { proc.classList.remove('show'); return; }
+  setStep('rules','done');
+
+  // Step 3: generate
+  setStep('gen','active'); await wait(180);
+  buildUI();
+  setStep('gen','done');
+
+  // Step 4: done
+  lastElapsed = ((performance.now() - t0) / 1000);
+  setStep('done','done');
+  document.querySelector('#step-done span').textContent = `Done · generated in ${lastElapsed.toFixed(1)}s`;
+
+  // Upload status card
+  document.getElementById('usFileName').textContent = fileName;
+  document.getElementById('usDetail').innerHTML =
+    `${insights.scanned} creators detected<br>${insights.messages} messages generated<br>Processed in ${lastElapsed.toFixed(1)}s`;
+  document.getElementById('uploadStatus').classList.add('show');
+
+  await wait(400);
+  proc.classList.remove('show');
+  renderInsights();
+}
+
+// ── Cell reader (handles hyperlinks + rich text + strikethrough) ──
+function cellText(ws, r, c) {
+  const addr = XLSX.utils.encode_cell({ r, c });
+  const cell = ws[addr];
+  if (!cell) return '';
+  let txt = '';
+  if (cell.w) txt = String(cell.w);
+  else if (cell.v != null && cell.v !== '') txt = String(cell.v);
+  if (!txt && cell.r) { const m = String(cell.r).match(/<t[^>]*>([^<]*)<\/t>/g); if (m) txt = m.map(x => x.replace(/<[^>]+>/g,'')).join(''); }
+  if (cell.l && cell.l.Target) { const tgt = cell.l.Target; if (!txt.includes(tgt)) txt = txt ? (txt + '\n' + tgt) : tgt; }
+  txt = txt.replace(/&#xA;/g,'\n').replace(/&#10;/g,'\n').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>');
+  return txt.trim();
+}
+// Detect strikethrough formatting on a cell
+function cellStruck(ws, r, c) {
+  const cell = ws[XLSX.utils.encode_cell({ r, c })];
+  if (!cell) return false;
+  if (cell.s && cell.s.font && cell.s.font.strike) return true;
+  if (cell.r && /strike/i.test(String(cell.r))) return true;
+  return false;
+}
+function buildGrid(ws) {
+  if (!ws || !ws['!ref']) return { grid:[], struck:[] };
+  const range = XLSX.utils.decode_range(ws['!ref']);
+  const grid = [], struck = [];
+  for (let r = range.s.r; r <= range.e.r; r++) {
+    const row = [], srow = [];
+    for (let c = range.s.c; c <= range.e.c; c++) { row.push(cellText(ws, r, c)); srow.push(cellStruck(ws, r, c)); }
+    grid.push(row); struck.push(srow);
+  }
+  return { grid, struck };
+}
+
+// ── Workbook parser with rule engine ──
+function parseWorkbook(wb) {
+  kolData = {}; vmData = {}; cmMap = {};
+  insights = { scanned:0, eligible:0, skipped:0, messages:0, skipReasons:{} };
+  const skippedHandles = new Set(), eligibleHandles = new Set();
+
+  const cmSheetName = wb.SheetNames.find(n => n.toLowerCase().includes('cm'));
+  if (!cmSheetName) { showError('CM sheet not found — one sheet name must contain "cm".'); return false; }
+
+  const cmRows = buildGrid(wb.Sheets[cmSheetName]).grid;
+  cmRows.slice(1).forEach(row => {
+    const h = String(row[0]||'').trim().toLowerCase();
+    const c = String(row[1]||'').trim();
+    if (h && c) cmMap[h] = c.split(',').map(s => s.trim()).filter(Boolean);
+  });
+  const cmSet = new Set(); Object.values(cmMap).forEach(cms => cms.forEach(c => cmSet.add(c)));
+  allCMs = Array.from(cmSet).sort();
+
+  wb.SheetNames.filter(n => n !== cmSheetName).forEach(sname => {
+    const { grid, struck } = buildGrid(wb.Sheets[sname]);
+    parseSections(grid, struck, skippedHandles, eligibleHandles);
+  });
+
+  if (!Object.keys(vmData).length) { showError('No voucher data found in the workbook.'); return false; }
+
+  // Insights:
+  //  scanned  = distinct creators encountered across all voucher sheets
+  //  eligible = creators who ended up with at least one voucher
+  //  skipped  = number of voucher-assignment rows removed by the rule engine
+  //  messages = total messages generated (one per creator, each may bundle multiple vouchers)
+  const totalSkipEvents = Object.values(insights.skipReasons).reduce((s,n)=>s+n, 0);
+  insights.scanned = new Set([...eligibleHandles, ...skippedHandles]).size;
+  insights.eligible = Object.keys(kolData).length;
+  insights.skipped = totalSkipEvents;
+  insights.messages = Object.values(kolData).reduce((s,k)=>s+k.vouchers.length,0);
+  return true;
+}
+
+function noteReason(note) {
+  const n = note.toLowerCase();
+  for (const rule of EXCLUSION_RULES) if (rule.match.some(m => n.includes(m))) return rule.label;
+  // invalid value: not a plain positive integer and not empty
+  return null;
+}
+
+function parseSections(raw, struck, skippedHandles, eligibleHandles) {
+  if (!raw || raw.length < 2) return;
+  let hdrIdx = -1;
+  for (let r = 0; r < Math.min(raw.length, 10); r++)
+    if (raw[r].some(c => String(c).trim().toLowerCase().startsWith('handle'))) { hdrIdx = r; break; }
+  if (hdrIdx < 0) return;
+  const hcols = raw[hdrIdx].reduce((a,c,i)=>{ if (String(c).trim().toLowerCase().startsWith('handle')) a.push(i); return a; }, []);
+
+  hcols.forEach(hcol => {
+    let vname='', vlink='', vdate='';
+    for (let r = 0; r < hdrIdx; r++) {
+      const val = String(raw[r][hcol]||'').trim(); if (!val) continue;
+      (val.includes('\n') ? val.split('\n') : [val]).forEach(line => {
+        line = line.trim(); if (!line) return;
+        const url = line.match(/https?:\/\/\S+/); const useby = /use\s*by/i.test(line);
+        if (url) { if (!vlink) vlink = url[0]; if (useby) { const d = line.replace(/.*use\s*by[^：:]*[：:\s]*/i,'').trim(); if (d) vdate = d; } }
+        else if (useby) vdate = line.replace(/use\s*by\s*date[：:\s]*/i,'').replace(/use\s*by[：:\s]*/i,'').trim();
+        else if (!line.startsWith('Product List') && line.toLowerCase() !== 'handle' && line.length > 1) { if (!vname) vname = line; }
+      });
+    }
+    if (!vname && !vlink) return;
+    const key = vname || vlink;
+    if (!vmData[key]) vmData[key] = { link:vlink, date:vdate, name:vname||key };
+
+    // find the value column for this section (for rule evaluation)
+    let valueCol = -1;
+    const nextHandle = hcols.find(c => c > hcol);
+    const scanEnd = nextHandle != null ? nextHandle : raw[hdrIdx].length;
+    for (let c = hcol+1; c < scanEnd; c++) {
+      if (String(raw[hdrIdx][c]||'').trim().toLowerCase().includes('value')) { valueCol = c; break; }
+    }
+
+    for (let r = hdrIdx+1; r < raw.length; r++) {
+      const h = String(raw[r][hcol]||'').trim(); if (!h) continue;
+      const hl = h.toLowerCase();
+      const cms = cmMap[hl] || []; if (!cms.length) continue;
+
+      // ── RULE ENGINE ──
+      let skipReason = null;
+      // strikethrough on the handle cell
+      if (struck && struck[r] && struck[r][hcol]) skipReason = 'Struck-through';
+      if (!skipReason && valueCol >= 0) {
+        const raw_val = String(raw[r][valueCol]||'').trim();
+        const noteR = noteReason(raw_val);
+        if (noteR) skipReason = noteR;
+        else if (raw_val) {
+          // invalid voucher value: must be a plain positive integer
+          if (!/^\d+$/.test(raw_val.replace(/[£$,\s]/g,''))) {
+            // if it's a non-numeric non-recognized note → invalid value
+            if (!/^\d+(\.\d+)?$/.test(raw_val)) skipReason = 'Invalid Value';
+          }
+        }
+      }
+
+      if (skipReason) {
+        skippedHandles.add(hl);
+        insights.skipReasons[skipReason] = (insights.skipReasons[skipReason]||0) + 1;
+        continue;
+      }
+
+      eligibleHandles.add(hl);
+      if (!kolData[hl]) kolData[hl] = { handle:h, cms:[], vouchers:[] };
+      cms.forEach(c => { if (!kolData[hl].cms.includes(c)) kolData[hl].cms.push(c); });
+      if (!kolData[hl].vouchers.includes(key)) kolData[hl].vouchers.push(key);
+    }
+  });
+}
+
+// ── UI ──
+function buildUI() {
+  document.getElementById('sKOLs').textContent = Object.keys(kolData).length;
+  document.getElementById('sSends').textContent = insights.messages;
+  document.getElementById('sVouchers').textContent = Object.keys(vmData).length;
+  document.getElementById('sCMs').textContent = allCMs.length;
+  document.getElementById('statsSection').style.display = '';
+  document.getElementById('cmSection').style.display = '';
+  document.getElementById('introCard').style.display = '';
+  document.getElementById('actionBar').style.display = '';
+  document.getElementById('searchWrap').classList.add('show');
+  if (!document.getElementById('introText').value) {
+    document.getElementById('introText').value =
+`Hi there! 💕\nYour vouchers are here! 🎉\nFeel free to place sample orders for any products you're interested in.\nWe recommend ordering early so you have enough time to receive your samples and create content.\nHappy shopping!`;
+  }
+  document.getElementById('pageSub').textContent =
+    `${Object.keys(vmData).length} campaigns · ${Object.keys(kolData).length} eligible creators · ${allCMs.length} CMs`;
+  buildCMPills(); render();
+}
+
+function renderInsights() {
+  document.getElementById('insScanned').textContent = insights.scanned;
+  document.getElementById('insEligible').textContent = insights.eligible;
+  document.getElementById('insSkipped').textContent = insights.skipped;
+  document.getElementById('insMessages').textContent = insights.messages;
+  const reasons = Object.entries(insights.skipReasons).sort((a,b)=>b[1]-a[1]);
+  const bd = document.getElementById('skipBreakdown');
+  if (reasons.length) {
+    bd.style.display = '';
+    document.getElementById('skipRows').innerHTML = reasons.map(([k,v]) => `<div class="skip-chip"><b>${v}</b> ${k}</div>`).join('');
+  } else { bd.style.display = 'none'; }
+  document.getElementById('insights').classList.add('show');
+}
+
+function buildCMPills() {
+  const total = Object.keys(kolData).length;
+  let html = `<button class="cm-pill ${currentCM==='all'?'active':''}" onclick="setCM('all',this)"><span>All CMs</span><span class="cm-badge">${total}</span></button>`;
+  allCMs.forEach(cm => {
+    const n = Object.values(kolData).filter(k=>k.cms.includes(cm)).length;
+    if (!n) return;
+    html += `<button class="cm-pill ${currentCM===cm?'active':''}" onclick="setCM('${cm}',this)"><span>${cm}</span><span class="cm-badge">${n}</span></button>`;
+  });
+  document.getElementById('cmList').innerHTML = html;
+}
+
+function setCM(cm, btn) {
+  currentCM = cm;
+  document.querySelectorAll('.cm-pill').forEach(p=>p.classList.remove('active'));
+  btn.classList.add('active'); render();
+}
+
+function getKOLs() {
+  const q = document.getElementById('searchInput').value.toLowerCase().trim();
+  return Object.values(kolData)
+    .filter(k => (currentCM==='all' || k.cms.includes(currentCM)) && (!q || k.handle.toLowerCase().includes(q)))
+    .sort((a,b) => a.handle.localeCompare(b.handle));
+}
+
+function buildMsg(kol) {
+  const intro = document.getElementById('introText').value.trim();
+  let msg = intro + '\n';
+  kol.vouchers.forEach(vk => { const v = vmData[vk]; if (!v) return; msg += '\n' + v.name + '\n' + (v.link||'') + (v.date ? '\nUse by ' + v.date : '') + '\n'; });
+  return msg.trim();
+}
+
+function render() {
+  if (!Object.keys(kolData).length) return;
+  const kols = getKOLs();
+  document.getElementById('copyAllCount').textContent = kols.length + ' creators';
+  if (!kols.length) {
+    document.getElementById('kolList').innerHTML = `<div class="empty"><div class="empty-glyph">○</div><div class="empty-title">No creators match</div><div class="empty-text">Try a different CM filter or search term.</div></div>`;
+    return;
+  }
+  let html = `<div class="divider"><div class="divider-line"></div><div class="divider-text">${kols.length} CREATORS</div><div class="divider-line"></div></div>`;
+  kols.forEach(kol => {
+    const msg = buildMsg(kol);
+    const sid = 'msg_' + kol.handle.replace(/[^a-zA-Z0-9]/g,'_');
+    const initials = kol.handle.replace(/[^a-zA-Z]/g,'').slice(0,2).toUpperCase() || '?';
+    const cmTags = kol.cms.map(c=>`<span class="tag cm">${esc(c)}</span>`).join('');
+    const vTag = `<span class="tag">${kol.vouchers.length} voucher${kol.vouchers.length>1?'s':''}</span>`;
+    html += `<div class="kol-card" id="card_${sid}">
+      <div class="kol-header" onclick="toggleCard('card_${sid}')">
+        <div class="kol-left">
+          <div class="kol-avatar">${initials}</div>
+          <div class="kol-info">
+            <div class="kol-name" data-handle="${esc(kol.handle)}" title="Click to copy handle">@${esc(kol.handle)}<span class="copy-hint">copy</span></div>
+            <div class="kol-meta">${cmTags}${vTag}</div>
+          </div>
+        </div>
+        <div class="kol-right">
+          <button class="copy-btn" id="btn_${sid}" onclick="event.stopPropagation();doCopy('btn_${sid}','${sid}')">Copy</button>
+          <svg class="chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 6l4 4 4-4"/></svg>
+        </div>
+      </div>
+      <div class="kol-body"><div class="msg-text" id="${sid}">${esc(msg)}</div></div>
+    </div>`;
+  });
+  document.getElementById('kolList').innerHTML = html;
+}
+
+function toggleCard(id) { document.getElementById(id).classList.toggle('expanded'); }
+
+// Handle copy via delegation
+document.addEventListener('click', function(e) {
+  const el = e.target.closest('.kol-name'); if (!el) return;
+  e.stopPropagation();
+  copyToClipboard(el.getAttribute('data-handle') || '');
+  el.classList.add('handle-copied');
+  setTimeout(() => el.classList.remove('handle-copied'), 1400);
+});
+
+function copyToClipboard(text) {
+  const ta = document.createElement('textarea');
+  ta.value = text; ta.style.cssText = 'position:fixed;opacity:0;top:0;left:0';
+  document.body.appendChild(ta); ta.focus(); ta.select();
+  try { document.execCommand('copy'); } catch(e) {}
+  document.body.removeChild(ta);
+}
+
+function doCopy(btnId, msgId) {
+  copyToClipboard(document.getElementById(msgId).textContent);
+  const btn = document.getElementById(btnId);
+  btn.textContent = '✓ Copied'; btn.classList.add('copied');
+  setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1800);
+}
+
+function copyAll(btn) {
+  const all = getKOLs().map(k=>buildMsg(k)).join('\n\n' + '─'.repeat(24) + '\n\n');
+  copyToClipboard(all);
+  const lbl = btn.querySelector('.lbl');
+  lbl.textContent = '✓ All copied!';
+  setTimeout(() => { lbl.textContent = 'Copy all messages'; }, 2000);
+}
+
+// ── Exports ──
+function exportTxt() {
+  const blocks = getKOLs().map(k => `@${k.handle}\n${buildMsg(k)}`);
+  downloadFile('voucher_messages.txt', blocks.join('\n\n' + '='.repeat(40) + '\n\n'));
+}
+function exportCsv() {
+  const rows = [['handle','creator_managers','vouchers','message']];
+  getKOLs().forEach(k => {
+    rows.push([k.handle, k.cms.join(' | '), k.vouchers.join(' | '), buildMsg(k)]);
+  });
+  const csv = rows.map(r => r.map(cell => `"${String(cell).replace(/"/g,'""')}"`).join(',')).join('\n');
+  downloadFile('voucher_messages.csv', csv);
+}
+function downloadFile(name, content) {
+  const blob = new Blob([content], { type:'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = name; document.body.appendChild(a); a.click();
+  document.body.removeChild(a); URL.revokeObjectURL(url);
+}
+
+function showError(msg) { const el = document.getElementById('errorBar'); el.textContent = msg; el.classList.toggle('show', !!msg); }
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+
+// ── Bundled sample workbook (built in-browser, all fake data) ──
+function buildSampleWorkbook() {
+  const wb = XLSX.utils.book_new();
+
+  const handles = [
+    'sunny_reviews12','cozy_finds7','urban_style44','glow_home9','daily_beauty31','luxe_deals5',
+    'bold_picks18','fresh_edit22','ck_life88','mint_shop3','rosy_corner55','vivid_vibes14',
+    'swift_lab27','calm_story6','neat_box41','sunny_finds63','cozy_style19','urban_home2',
+    'glow_beauty77','daily_deals48','luxe_picks11','bold_edit29','fresh_life33','ck_shop71',
+    'mint_corner8','rosy_vibes26','vivid_lab52','swift_story15','calm_box39','neat_reviews4'
+  ];
+  const cms = ['CM A','CM B','CM C','CM D','CM E','CM F'];
+  // deterministic pseudo-assignment
+  const handleCM = {};
+  handles.forEach((h,i) => {
+    const a = cms[i % cms.length];
+    const two = (i % 4 === 0);
+    handleCM[h] = two ? [a, cms[(i+2) % cms.length]] : [a];
+  });
+
+  // CM sheet
+  const cmAoa = [['handle','cm']];
+  handles.forEach(h => cmAoa.push([h, handleCM[h].join(',')]));
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(cmAoa), 'creator cm');
+
+  // Voucher sheet builder
+  function voucherSheet(title, sections) {
+    const maxRows = 40;
+    const aoa = Array.from({length:maxRows}, () => []);
+    sections.forEach((sec, si) => {
+      const base = si * 4;
+      aoa[0][base] = sec.name;
+      aoa[1][base] = sec.link;
+      aoa[2][base] = 'Use by date: ' + sec.date;
+      aoa[4][base] = 'Handle'; aoa[4][base+1] = 'Value'; aoa[4][base+2] = 'CM';
+      sec.rows.forEach((row, ri) => {
+        aoa[5+ri][base] = row.handle; aoa[5+ri][base+1] = row.value; aoa[5+ri][base+2] = handleCM[row.handle].join(',');
+      });
+    });
+    return XLSX.utils.aoa_to_sheet(aoa);
+  }
+
+  // pick creators + inject some exclusion notes to demonstrate the rule engine
+  function pick(seed, n, noteRate) {
+    const out = [];
+    for (let i = 0; i < n; i++) {
+      const h = handles[(seed + i*3) % handles.length];
+      let value = [100,150,200][(seed+i) % 3];
+      const roll = (seed + i*7) % 100;
+      if (roll < noteRate*100*0.4) value = 'already received';
+      else if (roll < noteRate*100*0.7) value = 'other agency';
+      else if (roll < noteRate*100) value = 'low ROI';
+      out.push({ handle:h, value });
+    }
+    return out;
+  }
+
+  XLSX.utils.book_append_sheet(wb, voucherSheet('Weekly Vouchers', [
+    { name:'Fashion Weekly Voucher 200/150', link:'https://example.com/voucher/FASHION200', date:'2026/06/30', rows: pick(1, 20, 0.25) },
+    { name:'Beauty Weekly Voucher 150/100',  link:'https://example.com/voucher/BEAUTY150',  date:'2026/06/30', rows: pick(5, 18, 0.25) },
+    { name:'Home Weekly Voucher 100/80',     link:'https://example.com/voucher/HOME100',    date:'2026/06/30', rows: pick(9, 16, 0.20) },
+  ]), 'Weekly Vouchers');
+
+  XLSX.utils.book_append_sheet(wb, voucherSheet('Flash Campaign', [
+    { name:'Flash Sale Voucher 300/200',  link:'https://example.com/voucher/FLASH300', date:'2026/07/05', rows: pick(3, 14, 0.20) },
+    { name:'VIP Creator Voucher 500/300', link:'https://example.com/voucher/VIP500',   date:'2026/07/05', rows: pick(7, 12, 0.15) },
+  ]), 'Flash Campaign');
+
+  return new Uint8Array(XLSX.write(wb, { type:'array', bookType:'xlsx' }));
+}
+</script>
+</body>
+</html>
